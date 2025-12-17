@@ -6,15 +6,15 @@
 //
 
 import Foundation
+import SwiftData
 
-struct Habit: Identifiable, Codable, Equatable {
-    let id: UUID
+@Model
+final class Habit {
     var title: String
     var isCompleted: Bool
     var createdAt: Date
 
-    init(id: UUID = UUID(), title: String, isCompleted: Bool = false, createdAt: Date = Date()) {
-        self.id = id
+    init(title: String, isCompleted: Bool = false, createdAt: Date = .now) {
         self.title = title
         self.isCompleted = isCompleted
         self.createdAt = createdAt
