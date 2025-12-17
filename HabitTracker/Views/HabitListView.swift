@@ -7,62 +7,59 @@
 
 
 import SwiftUI
-
-
+import SwiftData
 
 struct HabitListView: View {
 
-    @StateObject private var viewModel = HabitListViewModel()
+    // Lee automáticamente desde la BD (SwiftData)
+    // Ordena por fecha de creación, más recientes primero
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Habit.createdAt, order: .reverse)
+    private var habits: [Habit]
     @State private var newHabitTitle: String = ""
-
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
+            Group {
+                if habits.isEmpty {
+                    ContentUnavailableView(
+                        "Sin hábitos aún",
+                        systemImage: "checklist",
+                        description: Text("Ingresa un Habito")
+                    )
+                } else {
+                    List {
+                        ForEach(habits, id: \.persistentModelID) { habit in
+                            HStack {
+                                Image(systemName: habit.isCompleted ? "checkmark.circle.fill" : "circle")
+                                    .font(.title3)
 
-                HStack(spacing: 8) {
-                    TextField("Nuevo hábito...", text: $newHabitTitle)
-                        .textFieldStyle(.roundedBorder)
+                                Text(habit.title)
+                                    .strikethrough(habit.isCompleted)
+                                    .opacity(habit.isCompleted ? 0.5 : 1)
 
-                    Button("Agregar") {
-                        viewModel.addHabit(title: newHabitTitle)
-                        newHabitTitle = ""
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-                .padding(.horizontal)
-                .padding(.top, 8)
-
-                List {
-                    ForEach(viewModel.habits) { habit in
-                        HStack {
-                            Image(systemName: habit.isCompleted ? "checkmark.circle.fill" : "circle")
-                                .font(.title3)
-
-                            Text(habit.title)
-                                .strikethrough(habit.isCompleted)
-                                .opacity(habit.isCompleted ? 0.5 : 1)
-
-                            Spacer()
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            viewModel.toggleCompletion(for: habit)
+                                Spacer()
+                            }
                         }
                     }
-                    .onDelete(perform: viewModel.deleteHabit)
+                    .listStyle(.insetGrouped)
                 }
-                .listStyle(.insetGrouped)
             }
             .navigationTitle("Habit Tracker")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    EditButton()
-                }
-            }
         }
+    }
+    
+    private func addHabit() {
+        let cleanTitle = newHabitTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanTitle.isEmpty else { return }
+        
+        let habit = Habit(title: cleanTitle)
+        modelContext.insert(habit)
+        
+        newHabitTitle = ""
     }
 }
 
 #Preview {
     HabitListView()
+        .modelContainer(for: Habit.self, inMemory: true)
 }
