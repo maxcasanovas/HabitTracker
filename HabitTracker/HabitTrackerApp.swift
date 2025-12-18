@@ -1,19 +1,16 @@
-//
-//  HabitTrackerApp.swift
-//  HabitTracker
-//
-//  Created by Marcelo Casanovas on 14/12/25.
-//
-
 import SwiftUI
-import SwiftData
 
 @main
 struct HabitTrackerApp: App {
+
+    let persistenceController = PersistenceController.shared
+
     var body: some Scene {
         WindowGroup {
             HabitListView()
+                .environment(\.managedObjectContext,
+                              persistenceController.container.viewContext)
         }
-        .modelContainer(for: Habit.self)
     }
 }
+
