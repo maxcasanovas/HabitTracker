@@ -6,26 +6,26 @@
 //
 
 import Foundation
+import SwiftData
 
+@MainActor
 final class HabitListViewModel: ObservableObject{
     
-   @Published private(set) var habits: [Habit] = []
-    
-    func addHabit(title: String) {
-        let cleanTitle = title.trimmingCharacters(in: .whitespaces)
-        guard !cleanTitle.isEmpty else { return }
-        
-        let newHabit = Habit(title:cleanTitle)
-        habits.append(newHabit)
-        
-    }
-    
-    func toggleCompletion(for habit: Habit) {
-        guard let index = habits.firstIndex(of: habit) else { return }
-        habits[index].isCompleted.toggle()
-    }
-    
-    func deleteHabit(at offsets:IndexSet){
-        habits.remove(atOffsets: offsets)
-    }
+    func addHabit(title: String, context: ModelContext) {
+            let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !cleanTitle.isEmpty else { return }
+
+            let habit = Habit(title: cleanTitle)
+            context.insert(habit)
+        }
+
+        func toggle(_ habit: Habit) {
+            habit.isCompleted.toggle()
+        }
+
+        func deleteHabits(at offsets: IndexSet, habits: [Habit], context: ModelContext) {
+            for index in offsets {
+                context.delete(habits[index])
+            }
+        }
 }
