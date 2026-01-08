@@ -5,7 +5,8 @@ struct HabitListView: View {
 
     @Environment(\.managedObjectContext) private var context
     @StateObject private var viewModel = HabitListViewModel()
-
+    @StateObject private var quoteVM = DailyQuoteViewModel()
+    
     @State private var newHabitTitle = ""
     @FocusState private var isTitleFocused: Bool
 
@@ -19,6 +20,9 @@ struct HabitListView: View {
         NavigationView {
             VStack(spacing: 12) {
 
+                quoteHeader
+                    .padding(.horizontal)
+                    .padding(.bottom, 4)
                 HStack {
                     TextField("Nuevo hábito...", text: $newHabitTitle)
                         .textFieldStyle(.roundedBorder)
@@ -85,5 +89,63 @@ struct HabitListView: View {
             viewModel.delete($0, context: context)
         }
     }
+    
+    @ViewBuilder
+    private var quoteHeader: some View{
+        
+        switch quoteVM.state {
+            
+        case .idle, .loading :
+            HStack(spacing:10){
+                ProgressView()
+                Text("Cargando frase del dia...")
+                    .font(.subheadline)
+                    .opacity(0.7)
+                Spacer()
+            }
+            .task{
+                await quoteVM.loadTodayQuote()
+            }
+        case .loaded(let quote):
+            VStack(alignment: .leading, spacing: 6){
+                Text(" ´\(quote.text)´ ")
+                    .font(.subheadline)
+                    .italic()
+                
+                Text(" -\(quote.author)")
+                    .font(.caption)
+                    .opacity(0.7)
+            }
+            .padding(12)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius:14))
+            
+        case .failed(let message):
+            VStack(alignment: .leading, spacing: 8){
+                Text("No se pudo cargar la frase")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                
+                Text(message)
+                    .font(.caption)
+                    .opacity(0.7)
+                
+                Button("Reintentar"){
+                    Task{ await quoteVM.retry()}
+                }
+                .buttonStyle(.bordered)
+                
+            }
+            .padding(12)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            
+        }
+        
+    
+    }
 }
 
+#Preview {
+    HabitListView()
+}
