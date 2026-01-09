@@ -9,6 +9,12 @@ struct HabitListView: View {
     
     @State private var newHabitTitle = ""
     @FocusState private var isTitleFocused: Bool
+    
+    @AppStorage("dailyReminderEnabled") private var dailyReminderEnabled: Bool = false
+    
+    @AppStorage("dailyReminderHour") private var dailyReminderHour: Int = 20
+    
+    @AppStorage("dailyReminderMinute") private var dailyReminderMinute: Int = 0
 
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Habit.createdAt, ascending: false)],
@@ -20,6 +26,8 @@ struct HabitListView: View {
         NavigationView {
             VStack(spacing: 12) {
 
+                dashboardSection
+                    .padding(.horizontal)
                 quoteHeader
                     .padding(.horizontal)
                     .padding(.bottom, 4)
@@ -75,6 +83,7 @@ struct HabitListView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             viewModel.toggle(habit, context: context)
+            reschuduleIfNeeded()
         }
     }
 
@@ -82,12 +91,90 @@ struct HabitListView: View {
         viewModel.addHabit(title: newHabitTitle, context: context)
         newHabitTitle = ""
         isTitleFocused = false
+        reschuduleIfNeeded()
     }
 
     private func delete(at offsets: IndexSet) {
         offsets.map { habits[$0] }.forEach {
             viewModel.delete($0, context: context)
         }
+        reschuduleIfNeeded()
+    }
+    
+    private var dashboardSection: some View {
+        let total = habits.count
+        let completed = habits.filter{ $0.isCompleted}.count
+        let pending = total - completed
+        
+        return VStack(spacing:10){
+            DashboardCardView(total:total,completed: completed, pending: pending)
+            
+            reminderSettings(pending: pending)
+        }
+        
+    }
+    
+    private func reminderSettings(pending:Int) -> some View{
+        
+        VStack(alignment: .leading, spacing: 10 ){
+            Toggle("Recordatorio diario", isOn: $dailyReminderEnabled)
+                .onChange(of: dailyReminderEnabled){_, enabled in
+                    Task {
+                        if enabled {
+                            let granted = await NotificationManager.shared.requestAuthorization()
+                            if granted {
+                                await NotificationManager.shared.shcheduleDailySummary(at: dailyReminderHour, minute: dailyReminderMinute, pendingCount: pending)
+                            }else{
+                                dailyReminderEnabled = false
+                            }
+                        }else{
+                            NotificationManager.shared.cancelDailySummary()
+                        }
+                    }
+                    
+                }
+            
+            DatePicker(
+                "Hora",
+                selection: Binding(
+                    get:{
+                        var comps = DateComponents()
+                        comps.hour = dailyReminderHour
+                        comps.minute = dailyReminderMinute
+                        return Calendar.current.date(from: comps) ?? Date()
+                    },
+                    set:{ newDate in
+                        let comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
+                        dailyReminderHour = comps.hour ?? dailyReminderHour
+                        dailyReminderMinute = comps.minute ?? dailyReminderMinute
+                        
+                        if dailyReminderEnabled {
+                            Task{
+                                await NotificationManager.shared.shcheduleDailySummary(at: dailyReminderHour, minute: dailyReminderMinute, pendingCount:pending)
+                            }
+                        }
+                        
+                    }
+                ),
+                displayedComponents: .hourAndMinute
+            )
+            .datePickerStyle(.compact)
+            .disabled(!dailyReminderEnabled)
+        }
+        .padding(12)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+    
+    private func reschuduleIfNeeded(){
+        
+        guard dailyReminderEnabled else {return}
+        let pending = habits.filter{!$0.isCompleted}.count
+        
+        Task{
+            await NotificationManager.shared.shcheduleDailySummary(at: dailyReminderHour, minute: dailyReminderMinute, pendingCount: pending)
+        }
+        
     }
     
     @ViewBuilder

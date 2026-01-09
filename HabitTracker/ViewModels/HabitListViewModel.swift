@@ -33,5 +33,19 @@ final class HabitListViewModel: ObservableObject {
             print("❌ Core Data save error:", error.localizedDescription)
         }
     }
+    
+    func pendingCount(context: NSManagedObjectContext) -> Int {
+        let request: NSFetchRequest<Habit> = Habit.fetchRequest()
+        
+        request.predicate = NSPredicate(format: "isCompleted == NO")
+        request.includesSubentities = false
+        
+        do{
+            return try context.count(for: request)
+        }catch{
+            print("Pending count error", error.localizedDescription)
+            return 0
+        }
+    }
 }
 
